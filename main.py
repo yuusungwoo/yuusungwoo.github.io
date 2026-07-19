@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 
 headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.5',
 }
@@ -102,10 +102,16 @@ def search():
     web3_jobs = scrape_web3(term)
     wwr_jobs = scrape_wwr(term)
     
-    # 합치기
-    all_jobs = berlin_jobs + web3_jobs + wwr_jobs
+    # 결과 그룹화
+    jobs_by_source = {
+        "Berlin Startup Jobs": berlin_jobs,
+        "Web3 Career": web3_jobs,
+        "We Work Remotely": wwr_jobs
+    }
     
-    return render_template("search.html", term=term, jobs=all_jobs, count=len(all_jobs))
+    total_count = sum(len(jobs) for jobs in jobs_by_source.values())
+    
+    return render_template("search.html", term=term, jobs_by_source=jobs_by_source, count=total_count)
 
 if __name__ == "__main__":
     app.run(debug=True, port=8000)
