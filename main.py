@@ -1,0 +1,111 @@
+from flask import Flask, render_template, request, redirect
+import requests
+from bs4 import BeautifulSoup
+
+app = Flask(__name__)
+
+
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+}
+
+def scrape_berlin(term):
+    url = f"https://berlinstartupjobs.com/skill-areas/{term}/"
+    jobs_data = []
+    try:
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.content, "html.parser")
+            jobs = soup.find_all("li", class_="bjs-jlid")
+            for job in jobs:
+                title_elem = job.find("h4", class_="bjs-jlid__h")
+                title = title_elem.text if title_elem else "N/A"
+                
+                company_elem = job.find("a", class_="bjs-jlid__b")
+                company = company_elem.text if company_elem else "N/A"
+                
+                link = "N/A"
+                if title_elem and title_elem.find("a"):
+                    link = title_elem.find("a")["href"]
+                    
+                jobs_data.append({"title": title, "company": company, "link": link})
+    except Exception as e:
+        print("Error scraping BerlinStartupJobs:", e)
+    return jobs_data
+
+def scrape_web3(term):
+    url = f"https://web3.career/{term}-jobs"
+    jobs_data = []
+    try:
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.content, "html.parser")
+            jobs = soup.find_all("tr", class_="table_row")
+            for job in jobs:
+                title_elem = job.find("h2")
+                title = title_elem.text if title_elem else "N/A"
+                
+                company_elem = job.find("h3")
+                company = company_elem.text if company_elem else "N/A"
+                
+                link_elem = job.find("a")
+                link = "https://web3.career" + link_elem["href"] if link_elem and "href" in link_elem.attrs else "N/A"
+                
+                jobs_data.append({"title": title, "company": company, "link": link})
+    except Exception as e:
+        print("Error scraping Web3 Career:", e)
+    return jobs_data
+
+def scrape_wwr(term):
+    url = f"https://weworkremotely.com/remote-jobs/search?utf8=%E2%9C%93&term={term}"
+    jobs_data = []
+    try:
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.content, "html.parser")
+            jobs = soup.find_all("li", class_="feature")
+            for job in jobs:
+                title_elem = job.find("span", class_="new-listing__header__title__text")
+                title = title_elem.text if title_elem else "N/A"
+                
+                company_elem = job.find("p", class_="new-listing__company-name")
+                company = company_elem.text if company_elem else "N/A"
+                
+                links = job.find_all("a")
+                link = "N/A"
+                for a in links:
+                    if "href" in a.attrs and "/remote-jobs/" in a["href"]:
+                        link = "https://weworkremotely.com" + a["href"]
+                        break
+                        
+                jobs_data.append({"title": title, "company": company, "link": link})
+    except Exception as e:
+        print("Error scraping We Work Remotely:", e)
+    return jobs_data
+
+@app.route("/")
+def home():
+    return render_template("home.html")
+
+@app.route("/search")
+def search():
+    term = request.args.get("term")
+    if not term:
+        return redirect("/")
+    
+    term = term.lower().strip()
+    
+    # 세 사이트에서 스크래핑 진행
+    berlin_jobs = scrape_berlin(term)
+    web3_jobs = scrape_web3(term)
+    wwr_jobs = scrape_wwr(term)
+    
+    # 합치기
+    all_jobs = berlin_jobs + web3_jobs + wwr_jobs
+    
+    return render_template("search.html", term=term, jobs=all_jobs, count=len(all_jobs))
+
+if __name__ == "__main__":
+    app.run(debug=True, port=8000)
