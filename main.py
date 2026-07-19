@@ -1,8 +1,11 @@
 from flask import Flask, render_template, request, redirect
+from flask_frozen import Freezer
 import requests
 from bs4 import BeautifulSoup
+import sys
 
 app = Flask(__name__)
+freezer = Freezer(app)
 
 
 headers = {
@@ -89,9 +92,8 @@ def scrape_wwr(term):
 def home():
     return render_template("home.html")
 
-@app.route("/search")
-def search():
-    term = request.args.get("term")
+@app.route("/search/<term>/")
+def search(term):
     if not term:
         return redirect("/")
     
@@ -113,5 +115,13 @@ def search():
     
     return render_template("search.html", term=term, jobs_by_source=jobs_by_source, count=total_count)
 
+@freezer.register_generator
+def search():
+    for term in ["python", "javascript", "java"]:
+        yield {"term": term}
+
 if __name__ == "__main__":
-    app.run(debug=True, port=8000)
+    if len(sys.argv) > 1 and sys.argv[1] == "build":
+        freezer.freeze()
+    else:
+        app.run(debug=True, port=8000)
